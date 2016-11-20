@@ -1,0 +1,22 @@
+{
+    "name": "djeux/yii2-queue",
+    "type": "yii2-extension",
+    "license": "BSD-3-Clause",
+    "keywords": ["yii2", "queue", "beanstalkd"],
+    "minimum-stability": "dev",
+    "version": "dev-master",
+    "require": {
+        "symfony/process": "3.1",
+        "yiisoft/yii2": "~2.0.0",
+        "pda/pheanstalk": "^3.0"
+    },
+    "authors": [
+        {
+            "name": "Andrei Lukkonen",
+            "email": "athrin.freedom@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": { "djeux\\queue\\": "" }
+    }
+}
