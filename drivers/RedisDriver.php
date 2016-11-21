@@ -6,7 +6,7 @@
 namespace djeux\queue\drivers;
 
 
-class AbstractDriver
+class RedisDriver implements DriverInterface
 {
 
 }
