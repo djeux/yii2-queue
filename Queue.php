@@ -8,8 +8,10 @@ namespace djeux\queue;
 
 use djeux\queue\drivers\DriverInterface;
 use djeux\queue\exceptions\InvalidHandlerException;
+use djeux\queue\jobs\AbstractJob;
 use yii\base\Component;
 use Yii;
+use yii\di\Instance;
 use yii\helpers\Json;
 
 class Queue extends Component
@@ -61,7 +63,7 @@ class Queue extends Component
 
     /**
      * @param string $queue
-     * @return mixed
+     * @return AbstractJob
      */
     public function pop($queue)
     {
@@ -69,28 +71,40 @@ class Queue extends Component
             ->pop($queue);
     }
 
+    /**
+     * @param string $queue
+     * @return mixed
+     */
     public function purge($queue)
     {
         return $this->getDriver()
             ->purge($queue);
     }
 
-    public function release($id)
+    /**
+     * @param AbstractJob $job
+     */
+    public function release(AbstractJob $job)
     {
-
+        $this->getDriver()
+            ->release($job);
     }
 
-    public function delete($id)
+    /**
+     * @param AbstractJob $job
+     * @return mixed
+     */
+    public function delete(AbstractJob $job)
     {
-
+        return $this->getDriver()->delete($job);
     }
 
     /**
      * @return DriverInterface
      */
-    protected function getDriver()
+    public function getDriver()
     {
-        if (is_string($this->driver)) {
+        if (is_string($this->driver) || is_array($this->driver)) {
             $this->driver = Yii::createObject($this->driver, [$this]);
         }
 

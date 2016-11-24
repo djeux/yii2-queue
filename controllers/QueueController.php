@@ -33,11 +33,6 @@ class QueueController extends Controller
      */
     private $queueApplicationComponent;
 
-    /**
-     * @var bool
-     */
-    private $run = true;
-
     private $commandPath;
 
     /**
@@ -49,11 +44,22 @@ class QueueController extends Controller
     {
         parent::init();
         $this->commandPath = Yii::$app->basePath;
-        $this->queueApplicationComponent = Yii::$app->get('queue');
 
         if (!$this->cache instanceof Cache) {
-            $this->cache = $this->queueApplicationComponent->cache;
+            $this->cache = $this->getQueueComponent()->cache;
         }
+    }
+
+    /**
+     * @return Queue|null
+     */
+    public function getQueueComponent()
+    {
+        if (!$this->queueApplicationComponent) {
+            $this->queueApplicationComponent = Yii::$app->get('queue');
+        }
+
+        return $this->queueApplicationComponent;
     }
 
     /**
@@ -83,14 +89,14 @@ class QueueController extends Controller
      */
     public function actionManager()
     {
-        $queue = Yii::$app->get('queue', false);
+        $queue = $this->getQueueComponent();
 
         if (!$queue) {
             $this->stderr("'queue' component undefined");
             return self::EXIT_CODE_ERROR;
         }
 
-        $listenTubes = $queue->listen;
+        $listenTubes = $queue->tubes;
 
         $runningProcesses = [];
 
@@ -166,39 +172,32 @@ class QueueController extends Controller
      */
     public function actionWork($tubeName)
     {
-        $queue = Yii::$app->queue;
+        $queue = $this->getQueueComponent();
 
-        if (!in_array($tubeName, $queue->listen)) {
+        if (!in_array($tubeName, $queue->tubes)) {
             throw new \RuntimeException("Da fuck you're listening to? $tubeName");
         }
 
         $run = true;
-        $startTime = time();
         $failContainer = [];
 
         while ($run) {
-            $job = $queue->listen($tubeName);
+            $job = $queue->pop($tubeName);
 
             if (null !== $job) {
-                if (isset($failContainer[$job->id])) {
-                    $fails = $failContainer[$job->id];
-                } else {
-                    $fails = $failContainer[$job->id] = 0;
-                }
+                $jobId = $job->id;
+                $fails = isset($failContainer[$jobId]) ? $failContainer[$jobId] : $failContainer[$jobId] = 0;
 
                 try {
-                    if (!$job->handle()) {
-                        $job->release();
-                        $this->stderr("job failed to handle {$job->id}");
-                    }
+                    $job->process();
 
                     $job->delete();
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     $failContainer[$job->id] = $fails++;
                     $this->stderr($e->getMessage());
                     Yii::error($e->getMessage(), 'queue.' . $tubeName);
 
-                    if ($fails > 5 && method_exists($job, 'bury')) {
+                    if ($fails > 5) {
                         $job->bury();
                     } else {
                         $job->release();
@@ -211,29 +210,10 @@ class QueueController extends Controller
             }
 
             usleep(10000);
-
-            $this->memoryStats($tubeName, $startTime);
         }
 
         $this->stdout("Terminating on request");
         return self::EXIT_CODE_NORMAL;
-    }
-
-    /**
-     * @param string $tube
-     * @param integer $startTime
-     * @throws \yii\base\InvalidConfigException
-     */
-    private function memoryStats($tube, &$startTime)
-    {
-        if (time() - $startTime > 3) {
-            $redis = Yii::$app->get('redis');
-            $key = "queue.stats.{$tube}";
-            $data = time() . ':' . memory_get_usage(true);
-            $redis->lpush($key, $data);
-            $redis->ltrim($key, 0, 99);
-            $startTime = time();
-        }
     }
 
     /**
@@ -265,16 +245,6 @@ class QueueController extends Controller
     }
 
     /**
-     * @param bool $terminate
-     * @return $this
-     */
-    protected function terminate($terminate = true)
-    {
-        $this->run = !$terminate;
-        return $this;
-    }
-
-    /**
      * @return boolean
      */
     public function shouldRestart()
@@ -301,7 +271,7 @@ class QueueController extends Controller
     }
 
     /**
-     * Chech whether the queue process should stop
+     * Check whether the queue process should stop
      *
      * @return boolean
      */

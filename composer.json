@@ -3,12 +3,16 @@
     "type": "yii2-extension",
     "license": "BSD-3-Clause",
     "keywords": ["yii2", "queue", "beanstalkd"],
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "version": "dev-master",
     "require": {
         "symfony/process": "3.1",
         "yiisoft/yii2": "~2.0.0",
-        "pda/pheanstalk": "^3.0"
+        "pda/pheanstalk": "^3.0",
+        "yiisoft/yii2-redis": "~2.0.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "5.5.*"
     },
     "authors": [
         {
