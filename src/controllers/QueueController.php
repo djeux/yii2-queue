@@ -174,10 +174,6 @@ class QueueController extends Controller
     {
         $queue = $this->getQueueComponent();
 
-        if (!in_array($tubeName, $queue->tubes)) {
-            throw new \RuntimeException("Da fuck you're listening to? $tubeName");
-        }
-
         $run = true;
         $failContainer = [];
 

@@ -13,14 +13,22 @@ use yii\helpers\Json;
  * Class BeanstalkdJob
  * @package djeux\queue\jobs
  *
- * @property BeanstalkdDriver $driver
+ * @property BeanstalkdDriver $manager
  * @property Job $driverJob
  */
-class BeanstalkdJob extends AbstractJob
+class BeanstalkdJob extends BaseJob
 {
     public function delete()
     {
-        $this->driver->delete($this);
+        $this->manager->delete($this);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getId()
+    {
+        return $this->driverJob->getId();
     }
 
     /**
@@ -35,11 +43,11 @@ class BeanstalkdJob extends AbstractJob
 
     public function release()
     {
-        // TODO: Implement release() method.
+        return $this->manager->release($this);
     }
 
     public function bury()
     {
-        // TODO: Implement bury() method.
+        return $this->manager->bury($this);
     }
 }

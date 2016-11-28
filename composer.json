@@ -21,6 +21,6 @@
         }
     ],
     "autoload": {
-        "psr-4": { "djeux\\queue\\": "" }
+        "psr-4": { "djeux\\queue\\": "src\\" }
     }
 }

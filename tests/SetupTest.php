@@ -6,6 +6,8 @@
 namespace tests;
 
 
+use djeux\queue\interfaces\QueueManager;
+
 class SetupTest extends TestCase
 {
     protected function setUp()
@@ -19,6 +21,6 @@ class SetupTest extends TestCase
         $this->assertTrue(\Yii::$app->has('queue'));
         $component = \Yii::$app->get('queue');
 
-        $this->assertInstanceOf('djeux\queue\Queue', $component);
+        $this->assertInstanceOf(QueueManager::class, $component);
     }
 }

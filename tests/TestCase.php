@@ -24,9 +24,7 @@ abstract class TestCase extends \PHPUnit_Framework_TestCase
             'basePath' => __DIR__,
             'vendorPath' => dirname(__DIR__ . '/vendor'),
             'components' => [
-                'queue' => [
-                    'class' => 'djeux\queue\Queue',
-                ],
+
             ],
         ], $config));
     }
@@ -38,9 +36,6 @@ abstract class TestCase extends \PHPUnit_Framework_TestCase
             'basePath' => __DIR__,
             'vendorPath' => dirname(__DIR__ . '/vendor'),
             'components' => [
-                'queue' => [
-                    'class' => 'djeux\queue\Queue',
-                ],
                 'request' => [
                     'cookieValidationKey' => 'fasdfkj2hkjdhfaks3',
                     'scriptFile' => __DIR__ .'/index.php',

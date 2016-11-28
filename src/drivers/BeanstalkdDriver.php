@@ -6,11 +6,11 @@
 namespace djeux\queue\drivers;
 
 
-use djeux\queue\jobs\AbstractJob;
+use djeux\queue\jobs\BaseJob;
 use djeux\queue\jobs\BeanstalkdJob;
-use djeux\queue\Queue;
 use Pheanstalk\Pheanstalk;
 use Pheanstalk\PheanstalkInterface;
+use Yii;
 
 class BeanstalkdDriver extends AbstractDriver
 {
@@ -82,14 +82,22 @@ class BeanstalkdDriver extends AbstractDriver
         }
     }
 
-    public function delete(AbstractJob $job)
+    public function delete(BaseJob $job)
     {
         $this->pheanstalk->delete($job->getDriverJob());
     }
 
-    public function release(AbstractJob $job)
+    public function release(BaseJob $job)
     {
         $this->pheanstalk->release($job->getDriverJob());
+    }
+
+    /**
+     * @param BaseJob $job
+     */
+    public function bury(BaseJob $job)
+    {
+        $this->pheanstalk->bury($job->getDriverJob());
     }
 
     /**
@@ -97,12 +105,12 @@ class BeanstalkdDriver extends AbstractDriver
      */
     protected function openConnection()
     {
-        $this->pheanstalk = new Pheanstalk(
+        $this->pheanstalk = Yii::createObject(Pheanstalk::class, [
             $this->host,
             $this->port,
             $this->connectionTimeout,
-            $this->connectionPersistent
-        );
+            $this->connectionPersistent,
+        ]);
 
         return $this->pheanstalk;
     }
