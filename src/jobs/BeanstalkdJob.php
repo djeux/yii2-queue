@@ -1,53 +1,76 @@
 <?php
 /**
- *
+ * Created by PhpStorm.
+ * User: andre
+ * Date: 09.01.2017
+ * Time: 11:37
  */
 
 namespace djeux\queue\jobs;
 
-use djeux\queue\drivers\BeanstalkdDriver;
+
+use djeux\queue\BeanstalkdQueueManager;
+use djeux\queue\interfaces\QueueManager;
 use Pheanstalk\Job;
-use yii\helpers\Json;
+use Pheanstalk\Pheanstalk;
 
 /**
  * Class BeanstalkdJob
  * @package djeux\queue\jobs
  *
- * @property BeanstalkdDriver $manager
- * @property Job $driverJob
+ * @property BeanstalkdQueueManager $manager
  */
 class BeanstalkdJob extends BaseJob
 {
-    public function delete()
-    {
-        $this->manager->delete($this);
-    }
+    /**
+     * @var Job
+     */
+    protected $job;
 
     /**
-     * @inheritdoc
+     * @var Pheanstalk
      */
+    protected $pheanstalk;
+
+    public function __construct(QueueManager $manager, $pheanstalk, $payload, $queue)
+    {
+        parent::__construct($manager, $payload, $queue);
+
+        $this->pheanstalk = $pheanstalk;
+    }
+
     public function getId()
     {
-        return $this->driverJob->getId();
+        return $this->job->getId();
     }
 
     /**
-     * @return array
+     * @return $this
      */
-    public function getData()
-    {
-        $data = $this->driverJob->getData();
-
-        return Json::decode($data);
-    }
-
-    public function release()
-    {
-        return $this->manager->release($this);
-    }
-
     public function bury()
     {
-        return $this->manager->bury($this);
+        $this->pheanstalk->bury($this->job);
+
+        return $this;
+    }
+
+    /**
+     * @return BaseJob
+     */
+    public function delete()
+    {
+        $this->pheanstalk->delete($this->job);
+
+        return parent::delete();
+    }
+
+    /**
+     * @return BaseJob
+     */
+    public function release()
+    {
+        $this->pheanstalk->release($this->job);
+
+        return parent::release();
     }
 }

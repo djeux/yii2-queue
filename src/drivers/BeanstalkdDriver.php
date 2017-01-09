@@ -94,6 +94,7 @@ class BeanstalkdDriver extends AbstractDriver
 
     /**
      * @param BaseJob $job
+     * @return void
      */
     public function bury(BaseJob $job)
     {

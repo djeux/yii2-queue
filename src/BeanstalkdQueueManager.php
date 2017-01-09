@@ -6,7 +6,7 @@
 namespace djeux\queue;
 
 
-use djeux\queue\jobs\BeanstalkdJob;
+use Pheanstalk\Job;
 use Pheanstalk\Pheanstalk;
 use Pheanstalk\PheanstalkInterface;
 use Yii;
@@ -33,6 +33,16 @@ class BeanstalkdQueueManager extends BaseQueueManager
      */
     public $connectPersistent = false;
 
+    /**
+     * @var string
+     */
+    public $jobClass = 'djeux\queue\jobs\BeanstalkdJob';
+
+    /**
+     * Time to run
+     *
+     * @var int
+     */
     public $ttr = PheanstalkInterface::DEFAULT_TTR;
 
     /**
@@ -76,14 +86,14 @@ class BeanstalkdQueueManager extends BaseQueueManager
     public function pop($queue = 'default')
     {
         if ($job = $this->getPheanstalk()->reserveFromTube($queue, 0)) {
-            return new BeanstalkdJob($this, $job, $queue);
+            return Yii::createObject($this->jobClass, [$this, $this->pheanstalk, $job, $queue]);
         }
 
         return null;
     }
 
     /**
-     * @return PheanstalkInterface
+     * @return object|PheanstalkInterface
      */
     public function getPheanstalk()
     {

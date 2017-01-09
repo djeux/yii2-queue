@@ -38,8 +38,19 @@ class SyncTest extends TestCase
         $this->assertEquals($content, file_get_contents(__DIR__ . '/runtime/touch.txt'));
     }
 
+    public function testCallablePush()
+    {
+        $queueComponent = $this->getQueue();
+
+        $content = mt_rand(0, 1000) . 'new_content_callable';
+        $queueComponent->push(TestJob::class . '@makeFile', $content, 'test_queue');
+
+        $this->assertFileExists(__DIR__ . '/runtime/touch.txt');
+        $this->assertEquals($content, file_get_contents(__DIR__ . '/runtime/touch.txt'));
+    }
+
     /**
-     * @return null|QueueManager
+     * @return null|SyncQueueManager
      */
     private function getQueue()
     {

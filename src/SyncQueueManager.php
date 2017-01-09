@@ -8,9 +8,15 @@ namespace djeux\queue;
 
 use djeux\queue\interfaces\QueueManager;
 use djeux\queue\jobs\SyncJob;
+use Yii;
 
 class SyncQueueManager extends BaseQueueManager implements QueueManager
 {
+    /**
+     * @var string
+     */
+    public $jobClass = 'djeux\queue\jobs\SyncJob';
+
     /**
      * @inheritDoc
      */
@@ -19,9 +25,9 @@ class SyncQueueManager extends BaseQueueManager implements QueueManager
         $queueJob = $this->resolveJob($this->createPayload($job, $data), $queue);
 
         try {
-
+            $queueJob->handle();
         } catch (\Exception $e) {
-            \Yii::error($e->getMessage(), 'queue.sync');
+            \Yii::error($e->getMessage(), 'queue/sync');
         }
     }
 
@@ -49,8 +55,13 @@ class SyncQueueManager extends BaseQueueManager implements QueueManager
         return null;
     }
 
+    /**
+     * @param mixed $payload
+     * @param string $queue
+     * @return object|SyncJob
+     */
     protected function resolveJob($payload, $queue)
     {
-        return new SyncJob($payload, $queue);
+        return Yii::createObject($this->jobClass, [$this, $payload, $queue]);
     }
 }

@@ -12,7 +12,13 @@ class SetupTest extends TestCase
 {
     protected function setUp()
     {
-        $this->mockApplication();
+        $this->mockApplication([
+            'components' => [
+                'queue' => [
+                    'class' => 'djeux\queue\SyncQueueManager',
+                ]
+            ]
+        ]);
         parent::setUp();
     }
 

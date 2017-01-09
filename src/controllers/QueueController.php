@@ -1,7 +1,8 @@
 <?php
 
 namespace djeux\queue\controllers;
-use djeux\queue\Queue;
+use djeux\queue\BaseQueueManager;
+use djeux\queue\WorkerConfiguration;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 use yii\caching\Cache;
@@ -15,25 +16,19 @@ use Yii;
 class QueueController extends Controller
 {
     /**
-     * Cache key used to mark the RESTART request
-     *
-     * @var string
-     */
-    public $restartCacheKey = 'yii2-queue:restart';
-
-    /**
-     * Cache key used to mark the STOP request
-     *
-     * @var string
-     */
-    public $stopCacheKey = 'yii2-queue:stop';
-
-    /**
-     * @var Queue
+     * @var BaseQueueManager
      */
     private $queueApplicationComponent;
 
+    /**
+     * @var string
+     */
     private $commandPath;
+
+    /**
+     * @var WorkerConfiguration
+     */
+    private $configuration;
 
     /**
      * @var string|Cache
@@ -48,10 +43,12 @@ class QueueController extends Controller
         if (!$this->cache instanceof Cache) {
             $this->cache = $this->getQueueComponent()->cache;
         }
+
+        $this->configuration = $this->getQueueComponent()->getWorkerConfiguration();
     }
 
     /**
-     * @return Queue|null
+     * @return BaseQueueManager
      */
     public function getQueueComponent()
     {
@@ -74,7 +71,7 @@ class QueueController extends Controller
 
         if ($action->id !== 'restore' && $this->isStopped()) {
             sleep(10); // check only every 10 secs
-            $this->stdout("Queue is stopped", Console::FG_RED);
+            $this->stdout("Queue is stopped\n", Console::FG_RED);
             return false;
         }
 
@@ -89,55 +86,67 @@ class QueueController extends Controller
      */
     public function actionManager()
     {
-        $queue = $this->getQueueComponent();
-
-        if (!$queue) {
-            $this->stderr("'queue' component undefined");
-            return self::EXIT_CODE_ERROR;
-        }
-
-        $listenTubes = $queue->tubes;
+        // Fetch tubes that we should listen to
+        $listenTubes = $this->configuration->listen;
 
         $runningProcesses = [];
 
         try {
-            $this->stdout("Listening jobs from: " . implode(', ', $listenTubes), Console::FG_GREEN);
+            $this->stdout("Listening jobs from: " . implode(', ', $listenTubes) ."\n", Console::FG_GREEN);
+
+            // Traverse all tubes and start a process for each one
             foreach ($listenTubes as $tube) {
                 $command = $this->createCommand($tube);
                 $process = new Process($command, $this->commandPath);
-                $this->stdout("Running worker for tube: {$tube}");
+                $this->stdout("Running worker for tube: {$tube}\n");
                 $process->start([$this, 'handleOutput']);
 
+                // Add the process to our stack
                 $runningProcesses[$tube] = $process;
             }
         } catch (ProcessFailedException $e) {
+            Yii::error($e->getMessage(), 'queue/process');
             $this->stderr($e->getMessage(), Console::FG_RED);
         }
 
+        // Reset the array pointer so that we start from the beginning
         reset($runningProcesses);
-        while (list($name, $runningProc) = each($runningProcesses)) {
-            /* @var $runningProc Process */
+        while (list($name, $runningProcess) = each($runningProcesses)) {
+            /* @var $runningProcess Process */
 
-            if (!$runningProc->isRunning()) {
-                if ($this->isStopped() || $this->shouldRestart()) { // If the listener should restart, we remove all non running jobs
+            if (!$runningProcess->isRunning()) {
+                // If the listener is expected to stop, we do not restart stopped processes
+                // Stopping the process itself is being taken care of in the process itself
+                if ($this->stopProcesses()) {
                     unset($runningProcesses[$name]);
                 } else {
-                    $runningProcesses[$name] = $runningProc->restart([$this, 'handleOutput']);
+                    $runningProcesses[$name] = $runningProcess->restart([$this, 'handleOutput']);
                     $this->stdout("Restarting worker for: {$name}");
                 }
             }
 
-            if ($runningProc == last($runningProcesses)) {
+            // If we've checked the last process, move the pointer to beginning of our stack
+            if ($runningProcess == last($runningProcesses)) {
                 reset($runningProcesses);
             }
-            usleep(10000);
+
+            usleep(10000); // there's no need to monitor processes every microsecond.
         }
 
+        // If we only needed to restart, remove the key from cache, so that supervisor will restart the listener
         if ($this->shouldRestart()) {
-            $this->getCache()->delete($this->restartCacheKey);
+            $this->cache->delete($this->configuration->restartCacheKey);
         }
 
         return self::EXIT_CODE_NORMAL;
+    }
+
+    /**
+     * @return bool
+     */
+    public function stopProcesses()
+    {
+        return $this->isStopped() || $this->shouldRestart();
     }
 
     /**
@@ -175,34 +184,42 @@ class QueueController extends Controller
         $queue = $this->getQueueComponent();
 
         $run = true;
-        $failContainer = [];
+        $failBox = [];
 
         while ($run) {
-            $job = $queue->pop($tubeName);
+            // Pop a whelp from the eggs
+            $whelp = $queue->pop($tubeName);
 
-            if (null !== $job) {
-                $jobId = $job->id;
-                $fails = isset($failContainer[$jobId]) ? $failContainer[$jobId] : $failContainer[$jobId] = 0;
+            // If a whelp is pending, Handle IT!
+            if (null !== $whelp) {
+                $whelpId = $whelp->id;
+                if (isset($failBox[$whelpId])) {
+                    $countOfFails = $failBox[$whelpId];
+                } else {
+                    $failBox[$whelpId] = $countOfFails = 0;
+                }
 
                 try {
-                    $job->process();
+                    $whelp->handle();
 
-                    $job->delete();
+                    if ($queue->deleteByDefault) {
+                        $whelp->delete();
+                    }
                 } catch (\Exception $e) {
-                    $failContainer[$job->id] = $fails++;
+                    $failBox[$whelpId] = $countOfFails++;
                     $this->stderr($e->getMessage());
-                    Yii::error($e->getMessage(), 'queue.' . $tubeName);
+                    Yii::error($e->getMessage(), 'queue/' . $tubeName);
 
-                    if ($fails > 5) {
-                        $job->bury();
+                    if ($countOfFails > 5) {
+                        $whelp->bury();
                     } else {
-                        $job->release();
+                        $whelp->release();
                     }
                 }
             }
 
-            if ($this->isStopped() || $this->shouldRestart()) {
-                $run = false;
+            if ($this->stopProcesses()) {
+                $run = false; // stop the process if listener is set to stop
             }
 
             usleep(10000);
@@ -219,11 +236,12 @@ class QueueController extends Controller
      */
     public function actionRestart()
     {
-        if ($this->getCache()->set($this->restartCacheKey, time())) {
+        if ($this->cache->set($this->configuration->restartCacheKey, time())) {
+            $this->stdout("Restart command issued\n", Console::FG_GREEN);
             return self::EXIT_CODE_NORMAL;
         }
 
-        $this->stderr("Unable to order restart");
+        $this->stderr("Unable to order restart\n", Console::FG_RED);
         return self::EXIT_CODE_ERROR;
     }
 
@@ -234,10 +252,13 @@ class QueueController extends Controller
      */
     public function actionStop()
     {
-        $this->getCache()->set($this->stopCacheKey, time());
-        $this->stdout("Stopped");
+        if ($this->cache->set($this->configuration->stopCacheKey, time())) {
+            $this->stdout("Stopped\n", Console::FG_GREEN);
+            return self::EXIT_CODE_NORMAL;
+        }
 
-        return self::EXIT_CODE_NORMAL;
+        $this->stderr("Unable to order processes to stop\n", Console::FG_RED);
+        return self::EXIT_CODE_ERROR;
     }
 
     /**
@@ -245,8 +266,8 @@ class QueueController extends Controller
      */
     public function shouldRestart()
     {
-        if ($this->getCache()->exists($this->restartCacheKey)) {
-            $this->stdout("Restarting worker");
+        if ($this->cache->exists($this->configuration->restartCacheKey)) {
+            $this->stdout("Restarting worker\n");
             return true;
         }
 
@@ -260,8 +281,8 @@ class QueueController extends Controller
      */
     public function actionRestore()
     {
-        $this->getCache()->delete($this->stopCacheKey);
-        $this->stdout("Restored");
+        $this->cache->delete($this->configuration->stopCacheKey);
+        $this->stdout("Restored\n");
 
         return self::EXIT_CODE_NORMAL;
     }
@@ -273,19 +294,6 @@ class QueueController extends Controller
      */
     public function isStopped()
     {
-        return $this->getCache()->exists($this->stopCacheKey);
-    }
-
-    /**
-     * @return \yii\caching\Cache
-     * @throws \yii\base\InvalidConfigException
-     */
-    protected function getCache()
-    {
-        if (is_string($this->cache) && Yii::$app) {
-            $this->cache = Yii::$app->get($this->cache);
-        }
-
-        return $this->cache;
+        return $this->cache->exists($this->configuration->stopCacheKey);
     }
 }

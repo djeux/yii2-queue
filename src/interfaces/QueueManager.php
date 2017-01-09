@@ -6,12 +6,14 @@
 namespace djeux\queue\interfaces;
 
 
+use djeux\queue\jobs\BaseJob;
+
 interface QueueManager
 {
     /**
      * Push a job directly on to the queue
      *
-     * @param object $job
+     * @param object|string $job
      * @param string $data
      * @param null $queue
      * @return mixed
@@ -21,7 +23,7 @@ interface QueueManager
     /**
      * Push a job on the queue with a delay
      *
-     * @param integer $delay
+     * @param integer $delay delay in seconds
      * @param object $job
      * @param string $data
      * @param null $queue
@@ -41,7 +43,7 @@ interface QueueManager
      * Pop a job from the queue
      *
      * @param string $queue
-     * @return mixed
+     * @return BaseJob
      */
     public function pop($queue = 'default');
 

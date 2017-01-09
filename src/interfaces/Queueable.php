@@ -6,7 +6,9 @@
 namespace djeux\queue\interfaces;
 
 
+use djeux\queue\jobs\BaseJob;
+
 interface Queueable
 {
-    public function handle();
+    public function handle(BaseJob $job);
 }
