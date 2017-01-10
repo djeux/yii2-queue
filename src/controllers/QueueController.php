@@ -192,7 +192,7 @@ class QueueController extends Controller
 
             // If a whelp is pending, Handle IT!
             if (null !== $whelp) {
-                $whelpId = $whelp->id;
+                $whelpId = $whelp->getId();
                 if (isset($failBox[$whelpId])) {
                     $countOfFails = $failBox[$whelpId];
                 } else {
@@ -206,12 +206,15 @@ class QueueController extends Controller
                         $whelp->delete();
                     }
                 } catch (\Exception $e) {
-                    $failBox[$whelpId] = $countOfFails++;
-                    $this->stderr($e->getMessage());
+                    $countOfFails++;
+                    $failBox[$whelpId] = $countOfFails;
+                    $this->stderr($e->getMessage() . "\n");
                     Yii::error($e->getMessage(), 'queue/' . $tubeName);
 
-                    if ($countOfFails > 5) {
+                    if ($countOfFails > 2) {
+                        $this->stdout("Job $whelpId buried\n");
                         $whelp->bury();
+                        unset($failBox[$whelpId]);
                     } else {
                         $whelp->release();
                     }

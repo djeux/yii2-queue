@@ -62,7 +62,15 @@ abstract class BaseJob extends Object
 
         $this->instance = $this->resolve($class);
 
+        if (method_exists($this->instance, 'beforeJob')) {
+            $this->instance->beforeJob($this, $payload['data']);
+        }
+
         $this->instance->{$method}($this, $payload['data']);
+
+        if (method_exists($this->instance, 'afterJob')) {
+            $this->instance->afterJob($payload['data']);
+        }
     }
 
     /**
