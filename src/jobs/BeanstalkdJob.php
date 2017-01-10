@@ -68,7 +68,9 @@ class BeanstalkdJob extends BaseJob
      */
     public function delete()
     {
-        $this->pheanstalk->delete($this->job);
+        if (!$this->isReleasedOrDeleted()) {
+            $this->pheanstalk->delete($this->job);
+        }
 
         return parent::delete();
     }
@@ -78,7 +80,9 @@ class BeanstalkdJob extends BaseJob
      */
     public function release()
     {
-        $this->pheanstalk->release($this->job);
+        if (!$this->isReleasedOrDeleted()) {
+            $this->pheanstalk->release($this->job);
+        }
 
         return parent::release();
     }
