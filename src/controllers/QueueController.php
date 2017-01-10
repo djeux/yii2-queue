@@ -111,6 +111,9 @@ class QueueController extends Controller
 
         // Reset the array pointer so that we start from the beginning
         reset($runningProcesses);
+
+        $lastTube = array_pop(array_keys($runningProcesses));
+
         while (list($name, $runningProcess) = each($runningProcesses)) {
             /* @var $runningProcess Process */
 
@@ -126,7 +129,7 @@ class QueueController extends Controller
             }
 
             // If we've checked the last process, move the pointer to beginning of our stack
-            if ($runningProcess == last($runningProcesses)) {
+            if ($name == $lastTube) {
                 reset($runningProcesses);
             }
 
