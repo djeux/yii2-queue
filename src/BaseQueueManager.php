@@ -107,4 +107,13 @@ abstract class BaseQueueManager extends Component implements QueueManager
 
         return $this->cache;
     }
+
+    /**
+     * Push payload on to queue
+     *
+     * @param string $payload
+     * @param string $queue
+     * @return mixed
+     */
+    abstract public function pushRaw($payload, $queue = 'default');
 }

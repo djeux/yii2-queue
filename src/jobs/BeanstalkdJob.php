@@ -13,6 +13,7 @@ use djeux\queue\BeanstalkdQueueManager;
 use djeux\queue\interfaces\QueueManager;
 use Pheanstalk\Job;
 use Pheanstalk\Pheanstalk;
+use Pheanstalk\PheanstalkInterface;
 
 /**
  * Class BeanstalkdJob
@@ -32,11 +33,19 @@ class BeanstalkdJob extends BaseJob
      */
     protected $pheanstalk;
 
-    public function __construct(QueueManager $manager, $pheanstalk, $payload, $queue)
+    /**
+     * BeanstalkdJob constructor.
+     * @param QueueManager $manager
+     * @param PheanstalkInterface $pheanstalk
+     * @param Job $job
+     * @param string $queue
+     */
+    public function __construct(QueueManager $manager, PheanstalkInterface $pheanstalk, Job $job, $queue)
     {
-        parent::__construct($manager, $payload, $queue);
+        parent::__construct($manager, $job->getData(), $queue);
 
         $this->pheanstalk = $pheanstalk;
+        $this->job = $job;
     }
 
     public function getId()

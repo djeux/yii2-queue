@@ -10,6 +10,7 @@ use Pheanstalk\Job;
 use Pheanstalk\Pheanstalk;
 use Pheanstalk\PheanstalkInterface;
 use Yii;
+use yii\base\InvalidConfigException;
 
 class BeanstalkdQueueManager extends BaseQueueManager
 {
@@ -50,6 +51,15 @@ class BeanstalkdQueueManager extends BaseQueueManager
      */
     protected $pheanstalk;
 
+    public function init()
+    {
+        parent::init();
+
+        if (!$this->host) {
+            throw new InvalidConfigException("Missing 'host' option");
+        }
+    }
+
     /**
      * @inheritDoc
      */
@@ -57,6 +67,11 @@ class BeanstalkdQueueManager extends BaseQueueManager
     {
         $payload = $this->createPayload($job, $data);
 
+        return $this->pushRaw($payload, $queue);
+    }
+
+    public function pushRaw($payload, $queue = 'default')
+    {
         return $this->getPheanstalk()
             ->putInTube($queue, $payload, PheanstalkInterface::DEFAULT_PRIORITY, PheanstalkInterface::DEFAULT_DELAY, $this->ttr);
     }

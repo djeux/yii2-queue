@@ -22,7 +22,19 @@ class SyncQueueManager extends BaseQueueManager implements QueueManager
      */
     public function push($job, $data = '', $queue = null)
     {
-        $queueJob = $this->resolveJob($this->createPayload($job, $data), $queue);
+        $payload = $this->createPayload($job, $data);
+
+        $this->pushRaw($payload, $queue);
+    }
+
+    /**
+     * @param string $payload
+     * @param string $queue
+     * @return mixed|void
+     */
+    public function pushRaw($payload, $queue = 'default')
+    {
+        $queueJob = $this->resolveJob($payload, $queue);
 
         try {
             $queueJob->handle();

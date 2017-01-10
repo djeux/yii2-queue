@@ -41,7 +41,7 @@ class QueueController extends Controller
         $this->commandPath = Yii::$app->basePath;
 
         if (!$this->cache instanceof Cache) {
-            $this->cache = $this->getQueueComponent()->cache;
+            $this->cache = $this->getQueueComponent()->getCache();
         }
 
         $this->configuration = $this->getQueueComponent()->getWorkerConfiguration();
