@@ -48,12 +48,19 @@ class BeanstalkdJob extends BaseJob
         $this->job = $job;
     }
 
+    /**
+     * Fetch the ID of the job
+     *
+     * @return int
+     */
     public function getId()
     {
         return $this->job->getId();
     }
 
     /**
+     * Bury the job, so that it can be "kicked" later to revive
+     *
      * @return $this
      */
     public function bury()

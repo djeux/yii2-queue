@@ -21,8 +21,6 @@ use Yii;
  */
 abstract class BaseQueueManager extends Component implements QueueManager
 {
-    public $connection;
-
     /**
      * @var string
      */
@@ -36,18 +34,16 @@ abstract class BaseQueueManager extends Component implements QueueManager
      */
     public $deleteByDefault = true;
 
-    public $workerConfig = [];
-
     /**
-     * @var WorkerConfiguration
+     * @var WorkerConfiguration|[]
      */
-    private $worker;
+    public $worker = [];
 
     public function init()
     {
         parent::init();
 
-        $this->worker = new WorkerConfiguration($this->workerConfig);
+        $this->worker = new WorkerConfiguration($this->worker);
     }
 
     /**
@@ -109,7 +105,7 @@ abstract class BaseQueueManager extends Component implements QueueManager
     }
 
     /**
-     * Push payload on to queue
+     * Push payload (without processing) on to queue
      *
      * @param string $payload
      * @param string $queue

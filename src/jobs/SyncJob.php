@@ -1,24 +1,26 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: andre
- * Date: 09.01.2017
- * Time: 11:45
- */
 
 namespace djeux\queue\jobs;
 
-
+/**
+ * Class SyncJob
+ * Sync jobs are launched as soon as they're pushed on to the queue
+ *
+ * @package djeux\queue\jobs
+ */
 class SyncJob extends BaseJob
 {
-    protected $job;
-
+    /**
+     * @return string
+     */
     public function bury()
     {
         return '';
     }
 
     /**
+     * Sync jobs ID (does not have one)
+     *
      * @return string
      */
     public function getId()

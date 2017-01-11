@@ -31,7 +31,7 @@ abstract class BaseJob extends Object
     protected $payload;
 
     /**
-     * @var Queueable
+     * @var Queueable|object
      */
     protected $instance;
 
@@ -45,6 +45,12 @@ abstract class BaseJob extends Object
      */
     protected $released = false;
 
+    /**
+     * BaseJob constructor.
+     * @param QueueManager $manager
+     * @param mixed $payload
+     * @param string $queue
+     */
     public function __construct(QueueManager $manager, $payload, $queue)
     {
         parent::__construct();
@@ -54,6 +60,9 @@ abstract class BaseJob extends Object
         $this->queue = $queue;
     }
 
+    /**
+     * Handle the job processing
+     */
     public function handle()
     {
         $payload = $this->payload();
@@ -106,6 +115,8 @@ abstract class BaseJob extends Object
     }
 
     /**
+     * Mark job as deleted
+     *
      * @return $this
      */
     public function delete()
@@ -115,6 +126,8 @@ abstract class BaseJob extends Object
     }
 
     /**
+     * Mark job as released
+     *
      * @return $this
      */
     public function release()
@@ -124,6 +137,8 @@ abstract class BaseJob extends Object
     }
 
     /**
+     * Check whether the job was deleted or released
+     *
      * @return bool
      */
     public function isReleasedOrDeleted()
@@ -138,5 +153,10 @@ abstract class BaseJob extends Object
      */
     abstract public function getId();
 
+    /**
+     * Bury the job so that it no longer can be processed by default, but stays in the messenger
+     *
+     * @return mixed
+     */
     abstract public function bury();
 }

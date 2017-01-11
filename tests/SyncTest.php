@@ -26,6 +26,16 @@ class SyncTest extends TestCase
         ]);
     }
 
+    public function tearDown()
+    {
+        parent::tearDown();
+
+        $filename = __DIR__ . '/runtime/touch.txt';
+        if (is_file($filename)) {
+            unlink($filename);
+        }
+    }
+
     public function testObjectPush()
     {
         $queueComponent = $this->getQueue();

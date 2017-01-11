@@ -70,6 +70,9 @@ class BeanstalkdQueueManager extends BaseQueueManager
         return $this->pushRaw($payload, $queue);
     }
 
+    /**
+     * @inheritdoc
+     */
     public function pushRaw($payload, $queue = 'default')
     {
         return $this->getPheanstalk()
