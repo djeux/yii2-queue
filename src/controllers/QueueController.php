@@ -35,6 +35,13 @@ class QueueController extends Controller
      */
     private $cache;
 
+    /**
+     * Write memory statistics about running workers to redis
+     *
+     * @var bool
+     */
+    public $stats = false;
+
     public function init()
     {
         parent::init();
@@ -44,7 +51,28 @@ class QueueController extends Controller
             $this->cache = $this->getQueueComponent()->getCache();
         }
 
+        if ($this->stats) { // If user decided to write statistics to memory, check that redis is available
+            Yii::$app->get('redis');
+        }
+
         $this->configuration = $this->getQueueComponent()->getWorkerConfiguration();
+    }
+
+    /**
+     * @param string $actionID
+     * @return array
+     */
+    public function options($actionID)
+    {
+        return ['stats'];
+    }
+
+    /**
+     * @return array
+     */
+    public function optionAliases()
+    {
+        return ['s' => 'stats'];
     }
 
     /**
@@ -172,7 +200,12 @@ class QueueController extends Controller
      */
     private function createCommand($tubeName)
     {
-        return 'exec ' . PHP_BINARY . ' ' . Yii::$app->request->getScriptFile() . ' queue/work ' . $tubeName;
+        $command = 'exec ' . PHP_BINARY . ' ' . Yii::$app->request->getScriptFile() . ' queue/work ' . $tubeName;
+        if ($this->stats) {
+            $command .= ' --stats=1';
+        }
+
+        return $command;
     }
 
     /**
@@ -187,6 +220,7 @@ class QueueController extends Controller
         $queue = $this->getQueueComponent();
 
         $run = true;
+        $startTime = time();
         $failBox = [];
 
         while ($run) {
@@ -229,6 +263,10 @@ class QueueController extends Controller
             }
 
             usleep(10000);
+
+            if ($this->stats) {
+                $this->memoryStats($tubeName, $startTime);
+            }
         }
 
         $this->stdout("Terminating on request");
@@ -265,6 +303,23 @@ class QueueController extends Controller
 
         $this->stderr("Unable to order processes to stop\n", Console::FG_RED);
         return self::EXIT_CODE_ERROR;
+    }
+
+    /**
+     * @param string $tubeName
+     * @param integer $startTime
+     */
+    protected function memoryStats($tubeName, &$startTime)
+    {
+        // Write in interval of at least 3 seconds
+        if (time() - $startTime > 3) {
+            $redis = Yii::$app->get('redis');
+            $key = "queue:stats:{$tubeName}";
+            $data = time() . ':' . memory_get_usage(true);
+            $redis->lpush($key, $data);
+            $redis->ltrim($key, 0, 99);
+            $startTime = time();
+        }
     }
 
     /**
