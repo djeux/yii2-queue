@@ -6,7 +6,7 @@ namespace djeux\queue\helpers;
 use yii\db\Connection;
 use yii\db\Exception;
 
-class TimeoutTrait
+trait TimeoutTrait
 {
     /**
      * Check whether connection is alive and the server has not "gone away"
