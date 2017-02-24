@@ -12,6 +12,8 @@ use Yii;
 
 /**
  * Handler for the queue processes
+ *
+ * @property \djeux\queue\BaseQueueManager $queueComponent
  */
 class QueueController extends Controller
 {
@@ -34,6 +36,11 @@ class QueueController extends Controller
      * @var string|Cache
      */
     private $cache;
+
+    /**
+     * @var bool
+     */
+    private $terminate = false;
 
     /**
      * Write memory statistics about running workers to redis
@@ -99,7 +106,7 @@ class QueueController extends Controller
 
         if ($action->id !== 'restore' && $this->isStopped()) {
             sleep(10); // check only every 10 secs
-            $this->stdout("Queue is stopped\n", Console::FG_RED);
+            $this->line("Queue is stopped", Console::FG_RED);
             return false;
         }
 
@@ -120,13 +127,13 @@ class QueueController extends Controller
         $runningProcesses = [];
 
         try {
-            $this->stdout("Listening jobs from: " . implode(', ', $listenTubes) ."\n", Console::FG_GREEN);
+            $this->line("Listening jobs from: " . implode(', ', $listenTubes), Console::FG_GREEN);
 
             // Traverse all tubes and start a process for each one
             foreach ($listenTubes as $tube) {
                 $command = $this->createCommand($tube);
                 $process = new Process($command, $this->commandPath);
-                $this->stdout("Running worker for tube: {$tube}\n");
+                $this->line("Running worker for tube: {$tube}");
                 $process->start([$this, 'handleOutput']);
 
                 // Add the process to our stack
@@ -134,7 +141,7 @@ class QueueController extends Controller
             }
         } catch (ProcessFailedException $e) {
             Yii::error($e->getMessage(), 'queue/process');
-            $this->stderr($e->getMessage(), Console::FG_RED);
+            $this->line($e->getMessage(), Console::FG_RED);
         }
 
         // Reset the array pointer so that we start from the beginning
@@ -142,17 +149,26 @@ class QueueController extends Controller
 
         $lastTube = array_pop(array_keys($runningProcesses));
 
+        pcntl_signal(SIGTERM, [$this, 'terminate']);
+        pcntl_signal(SIGINT, [$this, 'terminate']);
+
         while (list($name, $runningProcess) = each($runningProcesses)) {
+            pcntl_signal_dispatch();
             /* @var $runningProcess Process */
 
-            if (!$runningProcess->isRunning()) {
+            if ($this->terminate) {
+                $this->line("Stopping worker '$name'");
+                $runningProcess->stop(60);
+                unset($runningProcesses[$name]);
+
+            } elseif (!$runningProcess->isRunning()) {
                 // If the listener is expected to stop, we do not restart stopped processes
                 // Stopping the process itself is being taken care of in the process itself
                 if ($this->stopProcesses()) {
                     unset($runningProcesses[$name]);
                 } else {
                     $runningProcesses[$name] = $runningProcess->restart([$this, 'handleOutput']);
-                    $this->stdout("Restarting worker for: {$name}");
+                    $this->line("Restarting worker for: {$name}");
                 }
             }
 
@@ -187,9 +203,9 @@ class QueueController extends Controller
     public function handleOutput($type, $line)
     {
         if ($type === Process::ERR)
-            $this->stderr($line);
+            $this->line($line, Console::FG_RED);
         else
-            $this->stdout($line);
+            $this->line($line);
     }
 
     /**
@@ -219,11 +235,15 @@ class QueueController extends Controller
     {
         $queue = $this->getQueueComponent();
 
-        $run = true;
         $startTime = time();
         $failBox = [];
 
-        while ($run) {
+        pcntl_signal(SIGTERM, [$this, 'terminate']);
+        pcntl_signal(SIGINT, [$this, 'terminate']);
+
+        while (!$this->terminate) {
+            pcntl_signal_dispatch();
+
             // Pop a whelp from the eggs
             $whelp = $queue->pop($tubeName);
 
@@ -259,7 +279,7 @@ class QueueController extends Controller
             }
 
             if ($this->stopProcesses()) {
-                $run = false; // stop the process if listener is set to stop
+                $this->terminate = true;
             }
 
             usleep(10000);
@@ -269,7 +289,7 @@ class QueueController extends Controller
             }
         }
 
-        $this->stdout("Terminating on request");
+        $this->stdout("Terminating $tubeName on request\n");
         return self::EXIT_CODE_NORMAL;
     }
 
@@ -281,12 +301,21 @@ class QueueController extends Controller
     public function actionRestart()
     {
         if ($this->cache->set($this->configuration->restartCacheKey, time())) {
-            $this->stdout("Restart command issued\n", Console::FG_GREEN);
+            $this->line("Restart command issued", Console::FG_GREEN);
             return self::EXIT_CODE_NORMAL;
         }
 
         $this->stderr("Unable to order restart\n", Console::FG_RED);
         return self::EXIT_CODE_ERROR;
+    }
+
+    /**
+     * @return $this
+     */
+    protected function terminate()
+    {
+        $this->terminate = true;
+        return $this;
     }
 
     /**
@@ -297,11 +326,11 @@ class QueueController extends Controller
     public function actionStop()
     {
         if ($this->cache->set($this->configuration->stopCacheKey, time())) {
-            $this->stdout("Stopped\n", Console::FG_GREEN);
+            $this->line("Stopped", Console::FG_GREEN);
             return self::EXIT_CODE_NORMAL;
         }
 
-        $this->stderr("Unable to order processes to stop\n", Console::FG_RED);
+        $this->line("Unable to order processes to stop", Console::FG_RED);
         return self::EXIT_CODE_ERROR;
     }
 
@@ -328,7 +357,7 @@ class QueueController extends Controller
     public function shouldRestart()
     {
         if ($this->cache->exists($this->configuration->restartCacheKey)) {
-            $this->stdout("Restarting worker\n");
+            $this->line("Restarting worker");
             return true;
         }
 
@@ -343,7 +372,7 @@ class QueueController extends Controller
     public function actionRestore()
     {
         $this->cache->delete($this->configuration->stopCacheKey);
-        $this->stdout("Restored\n");
+        $this->line("Restored");
 
         return self::EXIT_CODE_NORMAL;
     }
@@ -357,4 +386,17 @@ class QueueController extends Controller
     {
         return $this->cache->exists($this->configuration->stopCacheKey);
     }
+
+    /**
+     * @param string $text
+     * @return mixed
+     */
+    protected function line($text)
+    {
+        $args = func_get_args();
+        $args[0] = date('[Y-m-d H:i:s] ') . trim($text) . "\n";
+
+        return call_user_func_array([$this, 'stdout'], $args);
+    }
+
 }
