@@ -103,7 +103,7 @@ class BeanstalkdQueueManager extends BaseQueueManager
      */
     public function pop($queue = 'default')
     {
-        if ($job = $this->getPheanstalk()->ignore('default')->reserveFromTube($queue, 0)) {
+        if ($job = $this->getPheanstalk()->reserveFromTube($queue, 0)) {
             return Yii::createObject($this->jobClass, [$this, $this->pheanstalk, $job, $queue]);
         }
 
