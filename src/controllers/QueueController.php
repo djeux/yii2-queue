@@ -147,10 +147,10 @@ class QueueController extends Controller
         // Reset the array pointer so that we start from the beginning
         reset($runningProcesses);
 
-        $lastTube = array_pop(array_keys($runningProcesses));
+        $tubes = array_keys($runningProcesses);
+        $lastTube = array_pop($tubes);
 
-        pcntl_signal(SIGTERM, [$this, 'terminate']);
-        pcntl_signal(SIGINT, [$this, 'terminate']);
+        $this->registerSignalHandlers();
 
         while (list($name, $runningProcess) = each($runningProcesses)) {
             pcntl_signal_dispatch();
@@ -238,8 +238,7 @@ class QueueController extends Controller
         $startTime = time();
         $failBox = [];
 
-        pcntl_signal(SIGTERM, [$this, 'terminate']);
-        pcntl_signal(SIGINT, [$this, 'terminate']);
+        $this->registerSignalHandlers();
 
         while (!$this->terminate) {
             pcntl_signal_dispatch();
@@ -291,6 +290,15 @@ class QueueController extends Controller
 
         $this->stdout("Terminating $tubeName on request\n");
         return self::EXIT_CODE_NORMAL;
+    }
+
+    /**
+     *
+     */
+    protected function registerSignalHandlers()
+    {
+        pcntl_signal(SIGTERM, [$this, 'terminate']);
+        pcntl_signal(SIGINT, [$this, 'terminate']);
     }
 
     /**
