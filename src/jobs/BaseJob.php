@@ -8,12 +8,12 @@ namespace djeux\queue\jobs;
 use djeux\queue\drivers\DriverInterface;
 use djeux\queue\interfaces\Queueable;
 use djeux\queue\interfaces\QueueManager;
-use yii\base\Object;
+use yii\base\BaseObject;
 use Yii;
 use yii\di\Instance;
 use yii\helpers\Json;
 
-abstract class BaseJob extends Object
+abstract class BaseJob extends BaseObject
 {
     /**
      * @var QueueManager

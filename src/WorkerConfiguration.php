@@ -9,7 +9,7 @@
 namespace djeux\queue;
 
 
-use yii\base\Object;
+use yii\base\BaseObject;
 
 /**
  * Class WorkerConfiguration
@@ -17,7 +17,7 @@ use yii\base\Object;
  *
  * @package djeux\queue
  */
-class WorkerConfiguration extends Object
+class WorkerConfiguration extends BaseObject
 {
     /**
      * List of tubes/channels/etc that the console worker should listen to

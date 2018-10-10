@@ -7,7 +7,7 @@
     "version": "dev-master",
     "require": {
         "symfony/process": "3.1",
-        "yiisoft/yii2": "~2.0.0",
+        "yiisoft/yii2": ">=2.0.13",
         "pda/pheanstalk": "^3.0",
         "yiisoft/yii2-redis": "~2.0.0"
     },
